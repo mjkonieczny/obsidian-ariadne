@@ -1,4 +1,22 @@
-/* Hop distance from the origin note, shown beside each cone member. */
+/* Cone layer heading. A layer is the longest route from the origin note - and
+   the order the cone is sorted by. Notes inside one cannot reach each other. */
+.ariadne-layer-heading {
+	margin: 0.75em 0 0.15em;
+	font-size: var(--font-smaller);
+	font-weight: var(--font-semibold);
+}
+
+.ariadne-layer {
+	color: var(--text-accent);
+}
+
+.ariadne-layer-count {
+	color: var(--text-faint);
+	font-weight: normal;
+}
+
+/* Hop - how far a note is from the origin (shortest route), shown per note
+   because the layer does not say it. */
 .ariadne-hop {
 	color: var(--text-faint);
 	font-size: var(--font-smaller);

@@ -16,7 +16,10 @@ export interface ConeEntry {
 	layer: number;
 }
 
-type Links = Record<string, Record<string, number>>;
+export type Links = Record<string, Record<string, number>>;
+
+/** The vault's links, adjacency-mapped and walkable in one direction. */
+export type Walk = Map<string, string[]>;
 
 /**
  * A file the cone is allowed to travel through.
@@ -33,7 +36,7 @@ function traversable(path: string): boolean {
 }
 
 /** Obsidian's resolvedLinks, as a plain adjacency map over notes. */
-function forward(links: Links): Map<string, string[]> {
+export function forward(links: Links): Walk {
 	const out = new Map<string, string[]>();
 	for (const [from, targets] of Object.entries(links)) {
 		if (!traversable(from)) continue;
@@ -47,7 +50,7 @@ function forward(links: Links): Map<string, string[]> {
 	return out;
 }
 
-function invert(graph: Map<string, string[]>): Map<string, string[]> {
+export function invert(graph: Walk): Walk {
 	const out = new Map<string, string[]>([...graph.keys()].map((n) => [n, [] as string[]]));
 	for (const [from, tos] of graph) {
 		for (const to of tos) {
@@ -64,11 +67,13 @@ function invert(graph: Map<string, string[]>): Map<string, string[]> {
  * The direction decides only *membership*: down the links for the source cone,
  * up them for the composition cone.
  */
-function reach(graph: Map<string, string[]>, origin: string, maxHop: number): Map<string, number> {
+function reach(graph: Walk, origin: string, maxHop: number): Map<string, number> {
 	const hop = new Map<string, number>([[origin, 0]]);
+	// A read cursor rather than `shift()`: shifting re-indexes the whole queue on
+	// every step, which turns the walk quadratic on a cone of any size.
 	const queue = [origin];
-	while (queue.length) {
-		const node = queue.shift()!;
+	for (let head = 0; head < queue.length; head++) {
+		const node = queue[head]!;
 		const next = hop.get(node)! + 1;
 		if (next > maxHop) continue;
 		for (const neighbour of graph.get(node) ?? []) {
@@ -116,9 +121,21 @@ export function cone(
 	maxHop: number = Infinity,
 ): ConeEntry[] {
 	const fwd = forward(links);
-	if (!fwd.has(origin)) return [];
-
 	const walk = direction === 'source' ? fwd : invert(fwd);
+	return coneFrom(walk, origin, maxHop);
+}
+
+/**
+ * The same cone, from a walk that has already been built.
+ *
+ * Building the walk means a pass over every note in the vault, and the vault has
+ * thousands; the cone itself only ever touches the notes it reaches. Separating
+ * the two lets a caller build once and ask many times - which is what a view
+ * that re-renders on every note switch has to do to stay cheap.
+ */
+export function coneFrom(walk: Walk, origin: string, maxHop: number = Infinity): ConeEntry[] {
+	if (!walk.has(origin)) return [];
+
 	const hop = reach(walk, origin, maxHop);
 
 	// Sorting the vertices and each vertex's neighbours is what makes the order

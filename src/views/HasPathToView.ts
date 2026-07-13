@@ -1,5 +1,5 @@
 import { BasesView, MarkdownView, QueryController, TFile } from 'obsidian';
-import { hasPathTo } from '../graph/hasPathTo';
+import { cone } from '../graph/cone';
 
 export class HasPathToView extends BasesView {
 	readonly type = 'ariadne-has-path-to';
@@ -29,6 +29,11 @@ export class HasPathToView extends BasesView {
 	}
 
 	private render() {
+		// active-leaf-change can fire before Bases has run its query, so there is
+		// no result set to intersect the cone with yet. The next onDataUpdated
+		// will render properly.
+		if (!this.data) return;
+
 		const target = this.getContextFile();
 		this.containerEl.empty();
 
@@ -37,7 +42,12 @@ export class HasPathToView extends BasesView {
 			return;
 		}
 
-		const matches = this.data.data.filter(e => hasPathTo(e.file, target, this.app));
+		const ordered = cone(this.app.metadataCache.resolvedLinks, target.path, 'composition');
+
+		// The base's own filters still decide what is eligible; the cone decides
+		// which of those are reachable, and in what order.
+		const eligible = new Map(this.data.data.map((entry) => [entry.file.path, entry.file]));
+		const matches = ordered.filter((entry) => eligible.has(entry.path));
 
 		if (matches.length === 0) {
 			this.containerEl.createEl('p', { text: 'No notes link to this one.' });
@@ -46,9 +56,14 @@ export class HasPathToView extends BasesView {
 
 		const list = this.containerEl.createEl('ul');
 		for (const entry of matches) {
-			list.createEl('li').createEl('a', {
-				text: entry.file.basename,
-				href: entry.file.path,
+			const item = list.createEl('li');
+			item.createEl('a', {
+				text: eligible.get(entry.path)!.basename,
+				href: entry.path,
+			});
+			item.createEl('span', {
+				text: ` ${entry.hop}`,
+				cls: 'ariadne-hop',
 			});
 		}
 	}

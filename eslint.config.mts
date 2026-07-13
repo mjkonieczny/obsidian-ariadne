@@ -22,6 +22,14 @@ export default tseslint.config(
 		},
 	},
 	...obsidianmd.configs.recommended,
+	{
+		// Tests stand plain objects in for Obsidian's App and TFile, so the casts
+		// are deliberate - there is no real TFile to narrow with instanceof.
+		files: ["**/*.test.ts"],
+		rules: {
+			"obsidianmd/no-tfile-tfolder-cast": "off",
+		},
+	},
 	globalIgnores([
 		"node_modules",
 		"dist",

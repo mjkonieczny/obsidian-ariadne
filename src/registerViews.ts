@@ -1,4 +1,5 @@
 import { Plugin, ViewOption } from 'obsidian';
+import { VaultGraph } from './graph/VaultGraph';
 import { ConeView } from './views/ConeView';
 
 // The composition view keeps its original type id: bases already in the vault
@@ -41,12 +42,18 @@ function options(): ViewOption[] {
 }
 
 export function registerViews(plugin: Plugin): void {
+	// One graph, shared by every view and every note. Building it is a pass over
+	// the whole vault; each view doing that for itself is what made switching
+	// notes cost more than computing the cones did.
+	const graph = new VaultGraph(plugin.app);
+	graph.watch(plugin);
+
 	plugin.registerBasesView(SOURCE, {
 		name: 'Source cone',
 		icon: 'git-branch',
 		options,
 		factory: (controller, containerEl) =>
-			new ConeView(controller, containerEl, SOURCE, 'source'),
+			new ConeView(controller, containerEl, SOURCE, 'source', graph),
 	});
 
 	plugin.registerBasesView(COMPOSITION, {
@@ -54,6 +61,6 @@ export function registerViews(plugin: Plugin): void {
 		icon: 'git-branch-plus',
 		options,
 		factory: (controller, containerEl) =>
-			new ConeView(controller, containerEl, COMPOSITION, 'composition'),
+			new ConeView(controller, containerEl, COMPOSITION, 'composition', graph),
 	});
 }

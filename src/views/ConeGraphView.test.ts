@@ -36,10 +36,27 @@ interface Fake {
 	listeners: Record<string, ((event: unknown) => void)[]>;
 }
 
+/**
+ * What Obsidian does with `cls`, including the part that bites.
+ *
+ * It hands each class to `classList.add`, which rejects a token containing a
+ * space outright. A single string naming two classes therefore looks perfectly
+ * reasonable, passes any stub that just stores it, and throws in the app - and
+ * because the throw lands mid-draw, what is left on screen is whatever had
+ * already been drawn. So the stub has to reproduce the throw, not tolerate it.
+ */
+function classes(cls: string | string[] | undefined): string {
+	const tokens = cls === undefined ? [] : Array.isArray(cls) ? cls : [cls];
+	for (const token of tokens) {
+		if (/\s/.test(token)) throw new Error(`InvalidCharacterError: '${token}' has a space`);
+	}
+	return tokens.join(' ');
+}
+
 function fake(tag: string, cls = ''): Fake {
 	const el: Fake = { tag, cls, attrs: {}, textContent: '', children: [], listeners: {} };
-	const make = (childTag: string, o?: { attr?: Record<string, unknown>; cls?: string; text?: string }, cb?: (el: unknown) => void) => {
-		const child = fake(childTag, o?.cls ?? '');
+	const make = (childTag: string, o?: { attr?: Record<string, unknown>; cls?: string | string[]; text?: string }, cb?: (el: unknown) => void) => {
+		const child = fake(childTag, classes(o?.cls));
 		for (const [k, v] of Object.entries(o?.attr ?? {})) child.attrs[k] = String(v);
 		if (o?.text) child.textContent = o.text;
 		el.children.push(child);
@@ -121,6 +138,18 @@ describe('ConeGraphView', () => {
 		expect(nodes.map((n) => all(n).find((c) => c.tag === 'title')?.textContent).sort())
 			.toEqual(['A', 'B', 'C']);
 		expect(nodes.filter((n) => n.cls.includes('is-origin')).length).toBe(1);
+	});
+
+	it('marks the origin with a second class rather than a longer one', () => {
+		// The regression: `cls: 'ariadne-graph-node is-origin'` throws inside
+		// `classList.add`, and the origin is the first node drawn - so the links
+		// appeared and not one box did.
+		const { view, containerEl } = harness();
+		view.onDataUpdated();
+
+		const origin = withClass(containerEl, 'is-origin');
+		expect(origin.length).toBe(1);
+		expect(origin[0]!.cls).toBe('ariadne-graph-node is-origin');
 	});
 
 	it('draws the links among those notes', () => {

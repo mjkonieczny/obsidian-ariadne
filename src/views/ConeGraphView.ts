@@ -106,8 +106,13 @@ export class ConeGraphView extends ConeView {
 			const { x, y } = position.get(node.path)!;
 			const name = label.get(node.path) ?? node.path;
 			const isOrigin = node.path === origin.path;
+			// Two classes have to be given as two strings: `cls` goes to
+			// `classList.add`, which rejects a token containing a space outright -
+			// and the throw lands mid-draw, leaving the links on screen and nothing
+			// else. The origin is the first node drawn, so it took the whole drawing
+			// with it.
 			const group = svg.createSvg('g', {
-				cls: isOrigin ? 'ariadne-graph-node is-origin' : 'ariadne-graph-node',
+				cls: isOrigin ? ['ariadne-graph-node', 'is-origin'] : ['ariadne-graph-node'],
 			});
 			group.createSvg('rect', {
 				attr: { x, y, width: NODE_W, height: NODE_H, rx: 5 },

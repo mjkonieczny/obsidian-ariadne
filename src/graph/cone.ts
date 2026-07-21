@@ -16,6 +16,12 @@ export interface ConeEntry {
 	layer: number;
 }
 
+/** A link between two notes of a cone, running in the cone's own direction. */
+export interface ConeEdge {
+	from: string;
+	to: string;
+}
+
 export type Links = Record<string, Record<string, number>>;
 
 /** The vault's links, adjacency-mapped and walkable in one direction. */
@@ -133,6 +139,36 @@ export function cone(
  * the two lets a caller build once and ask many times - which is what a view
  * that re-renders on every note switch has to do to stay cheap.
  */
+/**
+ * The links *inside* a set of notes - the cone as a graph rather than a listing.
+ *
+ * A listing needs only the notes; a drawing needs what joins them. These are the
+ * walk's own edges restricted to the given notes - the induced subgraph - and
+ * they run in the cone's direction, so a source cone's edges point from a note
+ * to what it is built from.
+ *
+ * The caller decides the membership, which is the point: a view that has already
+ * dropped notes by tag, property or hop passes only the survivors, and gets back
+ * the edges among those rather than edges into notes it is not drawing.
+ *
+ * Include the origin to get the edges leaving it. `coneFrom` drops the origin
+ * from its listing because it is the note being looked at, but in a drawing it
+ * is the apex the rest hangs from, and its links have to start somewhere.
+ */
+export function coneEdges(walk: Walk, paths: Iterable<string>): ConeEdge[] {
+	const inCone = new Set(paths);
+	const out: ConeEdge[] = [];
+	// Sorted, for the same reason the cone itself sorts: resolvedLinks is keyed in
+	// index order, which shifts as the vault is re-indexed, and a drawing that
+	// reshuffles itself on every re-index is a drawing you cannot read.
+	for (const from of [...inCone].sort()) {
+		for (const to of [...(walk.get(from) ?? [])].sort()) {
+			if (inCone.has(to)) out.push({ from, to });
+		}
+	}
+	return out;
+}
+
 export function coneFrom(walk: Walk, origin: string, maxHop: number = Infinity): ConeEntry[] {
 	if (!walk.has(origin)) return [];
 

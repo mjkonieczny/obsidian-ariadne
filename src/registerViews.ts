@@ -1,11 +1,13 @@
 import { Plugin, ViewOption } from 'obsidian';
 import { VaultGraph } from './graph/VaultGraph';
+import { ConeGraphView } from './views/ConeGraphView';
 import { ConeView } from './views/ConeView';
 
 // The composition view keeps its original type id: bases already in the vault
 // name it, and a renamed type would silently stop resolving.
 const COMPOSITION = 'ariadne-has-path-to';
 const SOURCE = 'ariadne-source-cone';
+const SOURCE_GRAPH = 'ariadne-source-cone-graph';
 
 /**
  * The view's own settings, rather than the base's filters.
@@ -54,6 +56,17 @@ export function registerViews(plugin: Plugin): void {
 		options,
 		factory: (controller, containerEl) =>
 			new ConeView(controller, containerEl, SOURCE, 'source', graph),
+	});
+
+	// The same cone as the listing above, drawn rather than listed. It shares the
+	// listing's options, because it is the same cone answering to the same
+	// filters - only the last step differs.
+	plugin.registerBasesView(SOURCE_GRAPH, {
+		name: 'Source cone graph',
+		icon: 'workflow',
+		options,
+		factory: (controller, containerEl) =>
+			new ConeGraphView(controller, containerEl, SOURCE_GRAPH, 'source', graph),
 	});
 
 	plugin.registerBasesView(COMPOSITION, {

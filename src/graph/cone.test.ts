@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cone, Direction } from './cone';
+import { cone, coneEdges, Direction, forward } from './cone';
 
 // [[tinyGraph]] - 13 vertices, 15 edges, acyclic. Kept in step with the note.
 const TINY_GRAPH: [number, number][] = [
@@ -196,6 +196,39 @@ describe('cone', () => {
 
 		it('still reads outward within the bound', () => {
 			expect(violations(cone(links(TINY_GRAPH), note('8'), 'source', 2), TINY_GRAPH, 'source')).toBe(0);
+		});
+	});
+
+	describe('edges', () => {
+		// A listing needs only the notes. A drawing needs what joins them.
+		const walk = () => forward(links(TINY_GRAPH));
+		const pairs = (edges: { from: string; to: string }[]) =>
+			edges.map((e) => `${e.from}->${e.to}`.replace(/Notes\/|\.md/g, ''));
+
+		it('are the links among the notes given, and no others', () => {
+			// 8 -> 7 -> 6, and 6 -> 0. 2 -> 0 exists in the graph but 2 is not here.
+			expect(pairs(coneEdges(walk(), [note('8'), note('7'), note('6'), note('0')])).sort())
+				.toEqual(['6->0', '7->6', '8->7']);
+		});
+
+		it('leave out links to notes a filter dropped', () => {
+			// The cone still links onward to 4 and 9; neither is being drawn, so
+			// neither edge is.
+			expect(pairs(coneEdges(walk(), [note('8'), note('7'), note('6')])).sort())
+				.toEqual(['7->6', '8->7']);
+		});
+
+		it('include the origin, so the drawing has an apex to hang from', () => {
+			const withOrigin = coneEdges(walk(), [note('8'), note('7')]);
+			expect(pairs(withOrigin)).toEqual(['8->7']);
+			// Without it, 7 is a root with nothing above it.
+			expect(coneEdges(walk(), [note('7')])).toEqual([]);
+		});
+
+		it('come out in the same order however the links were enumerated', () => {
+			const a = coneEdges(forward(links(TINY_GRAPH)), [note('8'), note('7'), note('6')]);
+			const b = coneEdges(forward(links([...TINY_GRAPH].reverse())), [note('6'), note('8'), note('7')]);
+			expect(a).toEqual(b);
 		});
 	});
 

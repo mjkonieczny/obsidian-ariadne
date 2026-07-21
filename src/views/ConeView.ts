@@ -2,18 +2,29 @@ import { BasesView, MarkdownView, QueryController, TFile, debounce, getAllTags }
 import { ConeEntry, Direction, coneFrom } from '../graph/cone';
 import { VaultGraph } from '../graph/VaultGraph';
 
+/** A note of the cone that survived the filters, with its place in the order. */
+export interface ConeMatch {
+	entry: ConeEntry;
+	file: TFile;
+}
+
 /**
  * Lists the active note's cone, in dependency order.
  *
  * The direction decides which cone: down the links for the source cone - what
  * the note depends on, and so what has to be read first - or up them for the
  * composition cone, everything that depends on the note.
+ *
+ * Everything up to the drawing is shared: finding the origin, computing the
+ * cone, filtering it, and deciding a render is not worth doing. Only `draw` is
+ * about the listing being a list, so only `draw` is overridden - see
+ * `ConeGraphView`, which puts the same cone on screen as a graph.
  */
 export class ConeView extends BasesView {
 	readonly type: string;
-	private containerEl: HTMLElement;
-	private direction: Direction;
-	private graph: VaultGraph;
+	protected containerEl: HTMLElement;
+	protected direction: Direction;
+	protected graph: VaultGraph;
 
 	/**
 	 * What the last listing was drawn from.
@@ -145,7 +156,7 @@ export class ConeView extends BasesView {
 		return true;
 	}
 
-	private matches(ordered: ConeEntry[]): { entry: ConeEntry; file: TFile }[] {
+	private matches(ordered: ConeEntry[]): ConeMatch[] {
 		const tag = this.option('tag');
 		const property = this.option('property');
 		const rows = this.rows();
@@ -154,7 +165,7 @@ export class ConeView extends BasesView {
 		// own filters still count wherever Bases actually runs them.
 		const eligible = rows ? new Map(rows.map((r) => [r.file.path, r.file])) : null;
 
-		const out: { entry: ConeEntry; file: TFile }[] = [];
+		const out: ConeMatch[] = [];
 		for (const entry of ordered) {
 			const file = eligible
 				? eligible.get(entry.path)
@@ -202,6 +213,18 @@ export class ConeView extends BasesView {
 			return;
 		}
 
+		this.draw(matches, target);
+	}
+
+	/**
+	 * Put the cone on screen.
+	 *
+	 * The one step that is about the listing being a *list*. Everything before it
+	 * - the origin, the cone, the filters, deciding whether to redraw at all - is
+	 * the same whatever shape the cone is shown in, so a view that shows it
+	 * differently overrides this and nothing else.
+	 */
+	protected draw(matches: ConeMatch[], _origin: TFile): void {
 		// The entries arrive sorted by layer, so grouping is just chunking. A layer
 		// is a set whose members cannot reach one another, so the order inside a
 		// group carries no meaning - and a group rests only on the groups below it.
